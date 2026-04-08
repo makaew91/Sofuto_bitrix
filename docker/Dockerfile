@@ -1,4 +1,4 @@
-FROM php:8.1-apache
+FROM php:8.2-apache
 
 RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
@@ -29,7 +29,7 @@ RUN echo '\
     short_open_tag = On\n\
     mbstring.func_overload = 0\n\
     opcache.revalidate_freq = 0\n\
-    display_errors = On\n\
+    display_errors = Off\n\
     date.timezone = Europe/Moscow\n\
     ' > /usr/local/etc/php/conf.d/bitrix.ini
 
