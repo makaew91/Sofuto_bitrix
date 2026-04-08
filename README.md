@@ -52,7 +52,7 @@
 
 Нужен Docker + Docker Compose.
 
-### Шаги
+### Быстрый запуск
 
 ```bash
 # 1. Клонировать репозиторий
@@ -62,78 +62,59 @@ cd Sofuto_bitrix
 # 2. Поднять контейнеры
 docker compose up -d --build
 
-# 3. Скачать установщик Битрикс
+# 3. Скачать установщик Битрикс в контейнер
 bash docker/setup.sh
 
-# 4. Открыть установщик в браузере
+# 4. Пройти установку в браузере:
 open http://localhost:8080/bitrixsetup.php
 ```
 
-### Установка Битрикс
+**При установке Битрикс:**
+1. Редакция — **«Малый бизнес»** (содержит модуль `catalog`)
+2. БД: хост `db`, база `bitrix`, юзер `bitrix`, пароль `bitrix`
+3. Создать администратора (любые учётные данные)
+4. Решение — **«Интернет-магазин»** (не важно, дамп его всё равно заменит)
+5. Дождаться завершения установки
 
-1. Выбрать редакцию **«Малый бизнес»** (содержит модуль `catalog`)
-2. На шаге БД указать:
-   - **Хост:** `db`
-   - **База:** `bitrix`
-   - **Пользователь:** `bitrix`
-   - **Пароль:** `bitrix`
-3. Создать администратора
-4. Выбрать решение **«Интернет-магазин»**
+```bash
+# 5. Восстановить БД с готовыми инфоблоками, товарами, картинками
+bash docker/restore.sh
 
-### Настройка инфоблоков
-
-После установки в админке Битрикс создать два инфоблока:
-
-**1. Инфоблок «Товары»** (`kids_products`)
-- Тип инфоблока: «Каталог» (или создать свой тип `kids`)
-- В настройках инфоблока включить свойство `MORE_PHOTO` (файл, множественное)
-- Свойство `CML2_ARTICLE` (строка) — обычно создаётся автоматически
-
-**2. Инфоблок «Торговые предложения»** (`kids_offers`)
-- Тип: «Торговые предложения»
-- Привязка к `kids_products` через поле `CML2_LINK`
-- Добавить свойства:
-  - `COLOR_REF` — список, значения: `Красный`, `Синий`, `Зелёный`
-  - `SIZE_REF` — список, значения: `92`, `98`, `104`, `110`
-
-### Наполнение тестовыми данными
-
-После создания инфоблоков и их свойств открыть в браузере:
-
-```
-http://localhost:8080/local/seed/seed.php?products_iblock=X&offers_iblock=Y
+# 6. Открыть сайт
+open http://localhost:8080/
 ```
 
-где `X` и `Y` — ID созданных инфоблоков (можно посмотреть в админке: Контент → Инфоблоки).
+После этого на главной видны 2 товара (футболка и платье), клик — открывает карточку со всеми SKU, картинками, sticky-баром и AJAX-корзиной.
 
-Скрипт создаст:
-- Футболка «Мишка» — 3 цвета × 3 размера (9 SKU, один out-of-stock)
-- Платье «Ромашка» — 2 цвета × 4 размера (8 SKU со случайным наличием)
+### Если хочется делать всё с нуля вручную
 
-### Подключение шаблона на странице
+Если хочется воссоздать инфоблоки без использования дампа — см. `local/seed/seed.php` и `local/seed/seed_images.php`. Требуется сначала создать инфоблоки «Товары» и «Торговые предложения» со свойствами `COLOR_REF` (список: Красный/Синий/Зелёный), `SIZE_REF` (список: 92/98/104/110), `CML2_LINK` (привязка к товару), затем запустить:
 
-Создать страницу (например `/catalog/product.php`), вызвать компонент с параметром `product_card`:
+```
+/local/seed/seed.php?products_iblock=<ID>&offers_iblock=<ID>
+/local/seed/seed_images.php?offers_iblock=<ID>
+```
+
+### Подключение шаблона
+
+Главная страница реализована в `local/public/index.php` (копируется в web root скриптом restore.sh). Минимальный пример вызова компонента:
 
 ```php
-<?php require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php'; ?>
-
 <?php $APPLICATION->IncludeComponent(
     'bitrix:catalog.element',
     'product_card',
     [
         'IBLOCK_TYPE' => 'kids',
-        'IBLOCK_ID' => 'X',
-        'ELEMENT_ID' => '<ID товара>',
+        'IBLOCK_ID' => '4',
+        'ELEMENT_ID' => '317',
         'PROPERTY_CODE' => ['CML2_ARTICLE', 'MORE_PHOTO'],
         'OFFERS_PROPERTY_CODE' => ['COLOR_REF', 'SIZE_REF'],
-        'OFFER_TREE_PROPS' => ['COLOR_REF', 'SIZE_REF'],
+        'OFFERS_FIELD_CODE' => ['NAME'],
         'PRICE_CODE' => ['BASE'],
         'USE_PRICE_COUNT' => 'Y',
         'CACHE_TYPE' => 'N',
     ]
 ); ?>
-
-<?php require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/footer.php'; ?>
 ```
 
 ## Структура проекта
@@ -141,15 +122,21 @@ http://localhost:8080/local/seed/seed.php?products_iblock=X&offers_iblock=Y
 ```
 Sofuto_bitrix/
 ├── docker/
-│   ├── Dockerfile              # PHP 8.1-apache + extensions
-│   ├── setup.sh                # downloads bitrixsetup.php
-│   └── db/                     # DB init scripts (auto-restore)
-├── docker-compose.yml          # web + MySQL
+│   ├── Dockerfile                  # PHP 8.2-apache + Bitrix extensions
+│   ├── setup.sh                    # downloads bitrixsetup.php
+│   ├── restore.sh                  # restores DB dump + upload archive
+│   └── db/
+│       ├── dump.sql.gz             # preconfigured DB (iblocks, products, offers)
+│       └── upload.tar.gz           # uploaded product images
+├── docker-compose.yml              # web + MySQL
 ├── local/
 │   ├── ajax/
-│   │   └── add_to_cart.php     # AJAX endpoint
+│   │   └── add_to_cart.php         # AJAX endpoint (Bitrix\Sale\Basket)
+│   ├── public/
+│   │   └── index.php               # main page (product list + card)
 │   ├── seed/
-│   │   └── seed.php            # test data seeder
+│   │   ├── seed.php                # products + SKUs seeder
+│   │   └── seed_images.php         # per-color image seeder
 │   └── templates/
 │       └── .default/
 │           └── components/
