@@ -25,6 +25,8 @@
             this.selectedColorNameEl = this.root.querySelector('[data-selected-color]');
             this.stickyEl = document.querySelector('[data-sticky]');
             this.stickyPriceEl = document.querySelector('[data-sticky-price]');
+            this.stickyImgEl = document.querySelector('.product-card__sticky-img');
+            this.mainImgEl = this.root.querySelector('.product-card__slide.is-active') || this.root.querySelector('.product-card__slide');
 
             this.bindEvents();
             this.initGallery();
@@ -87,6 +89,16 @@
             }
             if (this.stickyPriceEl && offer) {
                 this.stickyPriceEl.textContent = offer.price_formatted;
+            }
+
+            // Swap main image if offer has its own
+            if (offer && offer.image) {
+                if (this.mainImgEl) {
+                    this.mainImgEl.src = offer.image;
+                }
+                if (this.stickyImgEl) {
+                    this.stickyImgEl.src = offer.image;
+                }
             }
 
             // Availability
@@ -155,6 +167,7 @@
                 if (data.status === 'ok') {
                     btn.classList.add('is-success');
                     this.setBtnText(btn, 'Добавлено ✓');
+                    this.showCartLink();
                     setTimeout(() => {
                         btn.classList.remove('is-success');
                         this.setBtnText(btn, originalText);
@@ -172,6 +185,22 @@
                     btn.disabled = false;
                 }, 1800);
             }
+        }
+
+        showCartLink() {
+            let toast = document.querySelector('.product-card__toast');
+            if (!toast) {
+                toast = document.createElement('a');
+                toast.className = 'product-card__toast';
+                toast.href = '/personal/cart/';
+                toast.innerHTML = '<span>Товар в корзине</span><strong>Перейти →</strong>';
+                document.body.appendChild(toast);
+            }
+            toast.classList.add('is-visible');
+            clearTimeout(this._toastTimer);
+            this._toastTimer = setTimeout(() => {
+                toast.classList.remove('is-visible');
+            }, 4000);
         }
 
         getBtnText(btn) {
